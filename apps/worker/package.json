@@ -11,7 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@cvsearch/config": "workspace:*"
+    "@cvsearch/config": "workspace:*",
+    "mongodb": "6.6.2"
   },
   "devDependencies": {
     "@types/node": "20.12.7",
