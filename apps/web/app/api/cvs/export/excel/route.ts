@@ -38,6 +38,10 @@ export async function GET(request: NextRequest) {
   try {
     const { rows, total } = await collectCvRows(filters);
     const buffer = await createExcelBuffer(rows);
+    const arrayBuffer = buffer.buffer.slice(
+      buffer.byteOffset,
+      buffer.byteOffset + buffer.byteLength
+    );
 
     await logExportEvent({
       userId,
@@ -48,7 +52,7 @@ export async function GET(request: NextRequest) {
       ipAddress
     });
 
-    return new NextResponse(buffer, {
+    return new NextResponse(arrayBuffer as BodyInit, {
       headers: {
         "content-type":
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

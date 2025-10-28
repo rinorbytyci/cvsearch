@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
+import type { Session } from "next-auth";
 
 import { auth } from "@/lib/auth/nextauth";
 import { createSavedSearch, getSavedSearchesForUser, savedSearchInputSchema } from "@/lib/saved-searches";
@@ -19,7 +20,9 @@ function serializeSavedSearch(document: Awaited<ReturnType<typeof createSavedSea
   };
 }
 
-function getUserObjectId(session: Awaited<ReturnType<typeof auth>>) {
+type AuthSession = Session | null;
+
+function getUserObjectId(session: AuthSession) {
   const id = session?.user?.id;
 
   if (!id) {
@@ -34,7 +37,7 @@ function getUserObjectId(session: Awaited<ReturnType<typeof auth>>) {
 }
 
 export async function GET() {
-  const session = await auth();
+  const session = (await auth()) as AuthSession;
   const userId = getUserObjectId(session);
 
   if (!session?.user || !userId) {
@@ -59,7 +62,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
+  const session = (await auth()) as AuthSession;
   const userId = getUserObjectId(session);
 
   if (!session?.user || !userId) {

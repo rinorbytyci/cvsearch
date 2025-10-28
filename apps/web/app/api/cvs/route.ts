@@ -3,7 +3,8 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { createHash } from "node:crypto";
 import { Readable } from "node:stream";
-import { ObjectId } from "mongodb";
+import { ObjectId, type UpdateFilter } from "mongodb";
+import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { z } from "zod";
 
 import { getEnv } from "@/config/env";
@@ -312,7 +313,9 @@ export async function POST(request: NextRequest) {
         const sanitizedFileName = sanitizeFilename(file.name || "cv.pdf");
         const objectKey = `cvs/${consultantSlug}/${Date.now()}-${sanitizedFileName}`;
 
-        const nodeStream = Readable.fromWeb(uploadStream as ReadableStream<Uint8Array>);
+        const nodeStream = Readable.fromWeb(
+          uploadStream as unknown as NodeReadableStream<Uint8Array>
+        );
 
         const upload = new Upload({
           client: s3Client,
@@ -378,7 +381,7 @@ export async function POST(request: NextRequest) {
             $push: {
               versionHistory: versionSummary
             }
-          }
+          } as unknown as UpdateFilter<CvDocument>
         );
 
         results.push({

@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
+import type { Session } from "next-auth";
 
 import { auth } from "@/lib/auth/nextauth";
 import {
@@ -10,7 +11,9 @@ import {
   updateSavedSearch
 } from "@/lib/saved-searches";
 
-function getUserObjectId(session: Awaited<ReturnType<typeof auth>>) {
+type AuthSession = Session | null;
+
+function getUserObjectId(session: AuthSession) {
   const id = session?.user?.id;
 
   if (!id) {
@@ -55,7 +58,7 @@ function serializeSavedSearch(search: Awaited<ReturnType<typeof getSavedSearchBy
 }
 
 export async function GET(request: NextRequest, context: { params: { id?: string } }) {
-  const session = await auth();
+  const session = (await auth()) as AuthSession;
   const userId = getUserObjectId(session);
   const searchId = parseSearchId(context.params?.id);
 
@@ -73,7 +76,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
 }
 
 export async function PUT(request: NextRequest, context: { params: { id?: string } }) {
-  const session = await auth();
+  const session = (await auth()) as AuthSession;
   const userId = getUserObjectId(session);
   const searchId = parseSearchId(context.params?.id);
 
@@ -105,7 +108,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
 }
 
 export async function DELETE(request: NextRequest, context: { params: { id?: string } }) {
-  const session = await auth();
+  const session = (await auth()) as AuthSession;
   const userId = getUserObjectId(session);
   const searchId = parseSearchId(context.params?.id);
 
