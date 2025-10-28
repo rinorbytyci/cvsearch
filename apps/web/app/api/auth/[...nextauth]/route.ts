@@ -19,30 +19,6 @@ const credentialsSchema = z.object({
   totp: z.string().optional()
 });
 
-type OptionalOAuthProvider =
-  | ReturnType<typeof GoogleProvider>
-  | ReturnType<typeof GitHubProvider>;
-
-const optionalProviders: OptionalOAuthProvider[] = [];
-
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-  optionalProviders.push(
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET
-    })
-  );
-}
-
-if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
-  optionalProviders.push(
-    GitHubProvider({
-      clientId: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET
-    })
-  );
-}
-
 const baseAdapter = MongoDBAdapter(getClient(), {
     collections: {
       Users: "users",
@@ -55,6 +31,9 @@ const baseAdapter = MongoDBAdapter(getClient(), {
 const adapter: Adapter = {
   ...baseAdapter,
   async createVerificationToken(token) {
+    if (!baseAdapter.createVerificationToken) {
+      throw new Error("Verification tokens are not supported by the adapter.");
+    }
     const created = await baseAdapter.createVerificationToken(token);
     await logAuditEvent({
       type: "password_reset",
@@ -68,6 +47,9 @@ const adapter: Adapter = {
     return created;
   },
   async useVerificationToken(params) {
+    if (!baseAdapter.useVerificationToken) {
+      throw new Error("Verification tokens are not supported by the adapter.");
+    }
     const result = await baseAdapter.useVerificationToken(params);
     if (result) {
       await logAuditEvent({
@@ -99,13 +81,17 @@ const handler = NextAuth({
         totp: { label: "Authenticator Code", type: "text", optional: true }
       },
       async authorize(rawCredentials) {
+        const attemptedEmail =
+          rawCredentials && typeof rawCredentials.email === "string"
+            ? rawCredentials.email
+            : undefined;
         const parseResult = credentialsSchema.safeParse(rawCredentials);
 
         if (!parseResult.success) {
           await logAuditEvent({
             type: "login",
             success: false,
-            email: rawCredentials?.email,
+            email: attemptedEmail,
             message: "Invalid credential payload"
           });
           return null;
@@ -169,7 +155,22 @@ const handler = NextAuth({
         return authUser;
       }
     }),
-    ...optionalProviders
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [
+          GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET
+          })
+        ]
+      : []),
+    ...(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
+      ? [
+          GitHubProvider({
+            clientId: process.env.GITHUB_CLIENT_ID,
+            clientSecret: process.env.GITHUB_CLIENT_SECRET
+          })
+        ]
+      : [])
   ],
   callbacks: {
     async jwt({ token, user }) {
@@ -195,7 +196,8 @@ const handler = NextAuth({
     }
   },
   events: {
-    async signOut({ session }) {
+    async signOut(message) {
+      const session = "session" in message ? message.session : undefined;
       if (session?.user) {
         await logAuditEvent({
           type: "session_revocation",
