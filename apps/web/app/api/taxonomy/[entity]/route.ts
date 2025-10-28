@@ -1,3 +1,4 @@
+import type { WithId } from "mongodb";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -11,6 +12,7 @@ import {
   slugifyTaxonomyValue,
   type TaxonomyEntity
 } from "@/lib/taxonomy";
+import type { TaxonomyDocument } from "@/lib/db/collections";
 
 const entitySchema = z.enum(["skills", "industries", "technologies"]);
 
@@ -85,9 +87,18 @@ export async function GET(request: NextRequest, context: { params: { entity?: st
     }
   });
 
-  const [result] = await collection.aggregate(pipeline).toArray();
-  const total = result?.totalCount?.[0]?.count ?? 0;
-  const items = (result?.data ?? []).map((doc: unknown) => mapTaxonomyDocument(doc as any));
+  const [result] = await collection
+    .aggregate(pipeline)
+    .toArray();
+
+  type FacetResult = {
+    data?: WithId<TaxonomyDocument>[];
+    totalCount?: Array<{ count: number }>;
+  };
+
+  const facetResult = result as FacetResult | undefined;
+  const total = facetResult?.totalCount?.[0]?.count ?? 0;
+  const items = (facetResult?.data ?? []).map(mapTaxonomyDocument);
 
   return NextResponse.json({
     entity,
