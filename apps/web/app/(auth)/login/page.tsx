@@ -1,8 +1,26 @@
 import Link from "next/link";
 
+import type { Route } from "next";
+
 import { LoginForm } from "./ui";
 
-export default function LoginPage() {
+type LoginPageProps = {
+  searchParams?: {
+    redirectTo?: string;
+  };
+};
+
+function resolveRedirect(redirectTo?: string): Route | null {
+  if (!redirectTo) {
+    return null;
+  }
+
+  return redirectTo.startsWith("/") ? (redirectTo as Route) : null;
+}
+
+export default function LoginPage({ searchParams }: LoginPageProps) {
+  const redirectRoute = resolveRedirect(searchParams?.redirectTo);
+
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-6 py-16">
       <div className="space-y-2 text-center">
@@ -11,7 +29,7 @@ export default function LoginPage() {
           Enter your email, password, and authenticator code if enabled.
         </p>
       </div>
-      <LoginForm />
+      <LoginForm redirectRoute={redirectRoute ?? undefined} />
       <p className="text-center text-sm text-gray-500">
         Don&apos;t have an account?{" "}
         <Link className="text-blue-600 underline" href="/register">

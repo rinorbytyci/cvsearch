@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import type { Route } from "next";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import type { LoginActionState } from "./actions";
 import { loginAction } from "./actions";
@@ -21,14 +21,12 @@ function SubmitButton() {
   );
 }
 
-export function LoginForm() {
+interface LoginFormProps {
+  redirectRoute?: Route;
+}
+
+export function LoginForm({ redirectRoute }: LoginFormProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirectToParam = searchParams.get("redirectTo");
-  const redirectRoute =
-    redirectToParam && redirectToParam.startsWith("/")
-      ? (redirectToParam as Route)
-      : null;
   const [state, formAction] = useFormState<LoginActionState, FormData>(loginAction, {
     success: false
   });

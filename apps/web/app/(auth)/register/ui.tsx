@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import type { Route } from "next";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import type { RegisterActionState } from "./actions";
 import { registerAction } from "./actions";
@@ -21,14 +21,12 @@ function SubmitButton() {
   );
 }
 
-export function RegisterForm() {
+interface RegisterFormProps {
+  redirectRoute?: Route;
+}
+
+export function RegisterForm({ redirectRoute }: RegisterFormProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirectToParam = searchParams.get("redirectTo");
-  const redirectRoute =
-    redirectToParam && redirectToParam.startsWith("/")
-      ? (redirectToParam as Route)
-      : null;
   const [state, formAction] = useFormState<RegisterActionState, FormData>(registerAction, {
     success: false
   });
