@@ -20,13 +20,13 @@ const credentialsSchema = z.object({
 });
 
 const baseAdapter = MongoDBAdapter(getClient(), {
-    collections: {
-      Users: "users",
-      Accounts: "accounts",
-      Sessions: "sessions",
-      VerificationTokens: "verificationTokens"
-    }
-  });
+  collections: {
+    Users: "users",
+    Accounts: "accounts",
+    Sessions: "sessions",
+    VerificationTokens: "verificationTokens"
+  }
+});
 
 const adapter: Adapter = {
   ...baseAdapter,
@@ -69,7 +69,7 @@ const adapter: Adapter = {
   }
 };
 
-const handler = NextAuth({
+const authHandler = NextAuth({
   adapter,
   secret: process.env.NEXTAUTH_SECRET,
   session: {
@@ -218,5 +218,8 @@ const handler = NextAuth({
   }
 });
 
-export const { handlers, auth, signIn, signOut } = handler;
-export const { GET, POST } = handlers;
+const { handlers, auth, signIn, signOut } = authHandler;
+
+export { auth, signIn, signOut };
+export const GET = handlers.GET;
+export const POST = handlers.POST;
