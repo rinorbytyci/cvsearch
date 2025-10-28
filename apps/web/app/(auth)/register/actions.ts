@@ -1,5 +1,6 @@
 "use server";
 
+import type { Route } from "next";
 import bcrypt from "bcryptjs";
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
@@ -16,7 +17,7 @@ const registerSchema = z
     password: z.string().min(8, "Password must be at least 8 characters"),
     confirmPassword: z.string().min(8, "Password confirmation is required"),
     enableTotp: z.union([z.literal("on"), z.literal("off")]).optional(),
-    redirectTo: z.string().optional()
+    redirectTo: z.string().startsWith("/", { message: "Redirect must be an internal path" }).optional()
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -66,6 +67,7 @@ export async function registerAction(
   }
 
   const { name, email, password, enableTotp, redirectTo } = parsed.data;
+  const redirectRoute = redirectTo ? (redirectTo as Route) : undefined;
   const emailLower = email.toLowerCase();
   const users = await usersCollection();
   const existing = await users.findOne({ email: emailLower });
@@ -111,8 +113,8 @@ export async function registerAction(
     }
   }
 
-  if (redirectTo && !totpSecret) {
-    redirect(redirectTo);
+  if (redirectRoute && !totpSecret) {
+    redirect(redirectRoute);
   }
 
   return { success: true, totpSecret };

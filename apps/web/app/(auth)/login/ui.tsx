@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import type { LoginActionState } from "./actions";
@@ -23,20 +24,24 @@ function SubmitButton() {
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirectTo") ?? undefined;
+  const redirectToParam = searchParams.get("redirectTo");
+  const redirectRoute =
+    redirectToParam && redirectToParam.startsWith("/")
+      ? (redirectToParam as Route)
+      : null;
   const [state, formAction] = useFormState<LoginActionState, FormData>(loginAction, {
     success: false
   });
 
   useEffect(() => {
     if (state.success) {
-      router.push(redirectTo ?? "/");
+      router.push(redirectRoute ?? ("/" as Route));
     }
-  }, [state.success, router, redirectTo]);
+  }, [state.success, router, redirectRoute]);
 
   return (
     <form action={formAction} className="flex flex-col gap-4 rounded border border-gray-200 p-6 shadow-sm">
-      <input name="redirectTo" type="hidden" value={redirectTo ?? ""} />
+      <input name="redirectTo" type="hidden" value={redirectRoute ?? ""} />
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium" htmlFor="email">
           Email

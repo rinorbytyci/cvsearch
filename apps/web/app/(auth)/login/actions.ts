@@ -1,5 +1,6 @@
 "use server";
 
+import type { Route } from "next";
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -10,7 +11,7 @@ const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1, "Password is required"),
   totp: z.string().optional(),
-  redirectTo: z.string().optional()
+  redirectTo: z.string().startsWith("/", { message: "Redirect must be an internal path" }).optional()
 });
 
 export interface LoginActionState {
@@ -49,6 +50,7 @@ export async function loginAction(prevState: LoginActionState | undefined, formD
   }
 
   const { email, password, totp, redirectTo } = parsed.data;
+  const redirectRoute = redirectTo ? (redirectTo as Route) : undefined;
 
   try {
     await signIn("credentials", {
@@ -70,8 +72,8 @@ export async function loginAction(prevState: LoginActionState | undefined, formD
     return { success: false, error: "Unexpected error occurred." };
   }
 
-  if (redirectTo) {
-    redirect(redirectTo);
+  if (redirectRoute) {
+    redirect(redirectRoute);
   }
 
   return { success: true };
