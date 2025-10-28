@@ -1,6 +1,7 @@
 # CV Search Monorepo
 
-This repository is a pnpm workspace containing the Next.js web application, background worker, shared configuration utilities, infrastructure as code, and CI/CD automation for the CV Search platform.
+This repository is an npm workspace containing the Next.js web application, background worker, shared configuration utilities,
+infrastructure as code, and CI/CD automation for the CV Search platform.
 
 ## Project Structure
 
@@ -12,37 +13,39 @@ This repository is a pnpm workspace containing the Next.js web application, back
 
 ## Getting Started
 
-Install dependencies with pnpm:
+Install dependencies with npm (requires registry access):
 
 ```bash
-pnpm install
+npm install
 ```
 
 Run the web application locally:
 
 ```bash
-pnpm --filter @cvsearch/web dev
+npm run dev --workspace @cvsearch/web
 ```
 
 Run the worker locally:
 
 ```bash
-pnpm --filter @cvsearch/worker start
+npm run start --workspace @cvsearch/worker
 ```
 
-Run formatting and quality checks:
+Run formatting and quality checks from the repository root:
 
 ```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
+npm run lint
+npm run typecheck
+npm run test
+npm run build
 ```
 
 ## Environment Variables
 
-Copy the `.env.example` files in each app to `.env` and adjust the values for your MongoDB Atlas cluster and Contabo object storage credentials. The shared `@cvsearch/config` package enforces the required environment variables via Zod validation.
+Copy the `.env.example` files in each app to `.env` and adjust the values for your MongoDB Atlas cluster and Contabo object stor
+age credentials. The shared `@cvsearch/config` package enforces the required environment variables via Zod validation.
 
 ## Infrastructure
 
-Terraform code under `infrastructure/` provisions networking, MongoDB Atlas, and Contabo object storage. Refer to the documentation inside that folder for details.
+Terraform code under `infrastructure/` provisions networking, MongoDB Atlas, and Contabo object storage. Refer to the documentat
+ion inside that folder for details.
