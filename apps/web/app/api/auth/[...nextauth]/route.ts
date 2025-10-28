@@ -35,6 +35,9 @@ const adapter: Adapter = {
       throw new Error("Verification tokens are not supported by the adapter.");
     }
     const created = await baseAdapter.createVerificationToken(token);
+    if (!created) {
+      return null;
+    }
     await logAuditEvent({
       type: "password_reset",
       success: true,
@@ -197,13 +200,18 @@ const handler = NextAuth({
   },
   events: {
     async signOut(message) {
-      const session = "session" in message ? message.session : undefined;
-      if (session?.user) {
+      const session = "session" in message ? message.session ?? undefined : undefined;
+      const token = "token" in message ? message.token ?? undefined : undefined;
+
+      const userId = session?.userId ?? token?.sub ?? undefined;
+      const email = token?.email ?? undefined;
+
+      if (userId || email) {
         await logAuditEvent({
           type: "session_revocation",
           success: true,
-          userId: session.user.id,
-          email: session.user.email ?? undefined
+          userId,
+          email
         });
       }
     }
