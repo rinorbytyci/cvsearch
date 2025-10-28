@@ -20,6 +20,18 @@ type UploadResult = {
   message?: string;
 };
 
+type UploadApiResponseResult = {
+  status?: UploadResultStatus;
+  versionId?: string;
+  message?: string;
+};
+
+type UploadApiResponse = {
+  results?: UploadApiResponseResult[];
+  error?: string;
+  versionId?: string;
+};
+
 interface SkillInput {
   id: string;
   name: string;
@@ -118,10 +130,10 @@ async function uploadFile(
 
     xhr.onload = () => {
       const { status } = xhr;
-      let response: any = null;
+      let response: UploadApiResponse | null = null;
 
       try {
-        response = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+        response = xhr.responseText ? (JSON.parse(xhr.responseText) as UploadApiResponse) : null;
       } catch (error) {
         // ignore parse errors; we'll fall back to generic messaging below
       }

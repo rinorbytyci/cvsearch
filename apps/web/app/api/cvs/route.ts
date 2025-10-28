@@ -306,7 +306,7 @@ export async function POST(request: NextRequest) {
         const sanitizedFileName = sanitizeFilename(file.name || "cv.pdf");
         const objectKey = `cvs/${consultantSlug}/${Date.now()}-${sanitizedFileName}`;
 
-        const nodeStream = Readable.fromWeb(uploadStream as any);
+        const nodeStream = Readable.fromWeb(uploadStream as ReadableStream<Uint8Array>);
 
         const upload = new Upload({
           client: s3Client,
