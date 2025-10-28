@@ -1,7 +1,7 @@
 {
   "name": "cvsearch-monorepo",
   "private": true,
-  "packageManager": "npm@10.7.0",
+  "packageManager": "pnpm@9.0.0",
   "workspaces": [
     "apps/*",
     "packages/*"
