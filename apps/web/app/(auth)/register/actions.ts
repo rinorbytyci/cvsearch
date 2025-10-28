@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { authenticator } from "otplib";
 import { z } from "zod";
 
-import { signIn } from "@/app/api/auth/[...nextauth]/route";
+import { signIn } from "@/lib/auth/nextauth";
 import { usersCollection } from "@/lib/db/collections";
 
 const registerSchema = z

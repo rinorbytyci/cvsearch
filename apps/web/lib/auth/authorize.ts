@@ -1,7 +1,7 @@
 import type { Session } from "next-auth";
 import { NextResponse } from "next/server";
 
-import { auth } from "@/app/api/auth/[...nextauth]/route";
+import { auth } from "@/lib/auth/nextauth";
 
 export interface AuthorizationOptions {
   roles?: string[];

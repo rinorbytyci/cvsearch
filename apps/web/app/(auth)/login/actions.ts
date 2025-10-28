@@ -4,7 +4,7 @@ import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { signIn } from "@/app/api/auth/[...nextauth]/route";
+import { signIn } from "@/lib/auth/nextauth";
 
 const loginSchema = z.object({
   email: z.string().email(),
