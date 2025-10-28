@@ -1,0 +1,11 @@
+[
+  {
+    "key": { "userId": 1, "name": 1 },
+    "name": "user_name_unique",
+    "unique": true
+  },
+  {
+    "key": { "userId": 1, "createdAt": -1 },
+    "name": "user_created_at"
+  }
+]

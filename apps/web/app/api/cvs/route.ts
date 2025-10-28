@@ -25,7 +25,9 @@ const metadataSchema = z.object({
     email: z.string().trim().email().optional(),
     phone: z.string().trim().optional(),
     title: z.string().trim().optional(),
-    location: z.string().trim().optional()
+    location: z.string().trim().optional(),
+    seniority: z.string().trim().optional(),
+    languages: z.array(z.string().trim()).optional()
   }),
   skills: z
     .array(
@@ -135,7 +137,11 @@ function normalizeMetadata(input: MetadataInput): NormalizedMetadata {
     email: input.consultant.email ? input.consultant.email.trim() : null,
     phone: input.consultant.phone ? input.consultant.phone.trim() : null,
     title: input.consultant.title ? input.consultant.title.trim() : null,
-    location: input.consultant.location ? input.consultant.location.trim() : null
+    location: input.consultant.location ? input.consultant.location.trim() : null,
+    seniority: input.consultant.seniority ? input.consultant.seniority.trim() : null,
+    languages: (input.consultant.languages ?? [])
+      .map((language) => language.trim())
+      .filter((language) => Boolean(language))
   };
 
   const skills: CvSkill[] = (input.skills ?? []).map((skill) => ({
