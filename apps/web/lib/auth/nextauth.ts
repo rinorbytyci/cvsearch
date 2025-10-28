@@ -19,55 +19,61 @@ const credentialsSchema = z.object({
   totp: z.string().optional()
 });
 
-const baseAdapter = MongoDBAdapter(getClient(), {
-  collections: {
-    Users: "users",
-    Accounts: "accounts",
-    Sessions: "sessions",
-    VerificationTokens: "verificationTokens"
-  }
-});
+const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
 
-const adapter: Adapter = {
-  ...baseAdapter,
-  async createVerificationToken(token) {
-    if (!baseAdapter.createVerificationToken) {
-      throw new Error("Verification tokens are not supported by the adapter.");
+function createAuditAdapter(): Adapter {
+  const baseAdapter = MongoDBAdapter(getClient(), {
+    collections: {
+      Users: "users",
+      Accounts: "accounts",
+      Sessions: "sessions",
+      VerificationTokens: "verificationTokens"
     }
-    const created = await baseAdapter.createVerificationToken(token);
-    if (!created) {
-      return null;
-    }
-    await logAuditEvent({
-      type: "password_reset",
-      success: true,
-      email: created.identifier,
-      metadata: {
-        action: "create",
-        token: created.token
+  });
+
+  return {
+    ...baseAdapter,
+    async createVerificationToken(token) {
+      if (!baseAdapter.createVerificationToken) {
+        throw new Error("Verification tokens are not supported by the adapter.");
       }
-    });
-    return created;
-  },
-  async useVerificationToken(params) {
-    if (!baseAdapter.useVerificationToken) {
-      throw new Error("Verification tokens are not supported by the adapter.");
-    }
-    const result = await baseAdapter.useVerificationToken(params);
-    if (result) {
+      const created = await baseAdapter.createVerificationToken(token);
+      if (!created) {
+        return null;
+      }
       await logAuditEvent({
         type: "password_reset",
         success: true,
-        email: result.identifier,
+        email: created.identifier,
         metadata: {
-          action: "use",
-          token: result.token
+          action: "create",
+          token: created.token
         }
       });
+      return created;
+    },
+    async useVerificationToken(params) {
+      if (!baseAdapter.useVerificationToken) {
+        throw new Error("Verification tokens are not supported by the adapter.");
+      }
+      const result = await baseAdapter.useVerificationToken(params);
+      if (result) {
+        await logAuditEvent({
+          type: "password_reset",
+          success: true,
+          email: result.identifier,
+          metadata: {
+            action: "use",
+            token: result.token
+          }
+        });
+      }
+      return result;
     }
-    return result;
-  }
-};
+  };
+}
+
+const adapter = isBuildPhase ? undefined : createAuditAdapter();
 
 export const authHandler = NextAuth({
   adapter,
