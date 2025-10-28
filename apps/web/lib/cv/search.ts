@@ -1,5 +1,7 @@
 import type { Document, ObjectId } from "mongodb";
 
+import { getEnv } from "@/config/env";
+import { cvEntitiesCollection, type CvEntityDocument } from "@/lib/db/cv-entities";
 import { cvsCollection, type CvDocument } from "@/lib/db/cv";
 import type { SavedSearchFilters } from "@/lib/db/collections";
 
@@ -27,7 +29,16 @@ export interface CvSearchResult {
   total: number;
   page: number;
   pageSize: number;
+  suggestions: CvSemanticSuggestion[];
 }
+
+export interface CvSemanticSuggestion {
+  type: CvEntityDocument["entityType"];
+  value: string;
+  score: number;
+}
+
+const EMBEDDING_DIMENSIONS = 256;
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -50,6 +61,11 @@ function normalizeFilterValues(values?: string[] | null) {
 
 export function parseSearchFiltersFromParams(params: URLSearchParams): CvSearchFilters {
   const filters: CvSearchFilters = {};
+
+  const keyword = params.get("q")?.trim();
+  if (keyword) {
+    filters.keyword = keyword;
+  }
 
   const skills = normalizeFilterValues(params.getAll("skills"));
   if (skills.length) {
@@ -84,6 +100,30 @@ export function parseSearchFiltersFromParams(params: URLSearchParams): CvSearchF
   const industries = normalizeFilterValues(params.getAll("industry"));
   if (industries.length) {
     filters.industries = industries;
+  }
+
+  const roles = normalizeFilterValues(params.getAll("role"));
+  if (roles.length) {
+    filters.roles = roles;
+  }
+
+  const education = normalizeFilterValues(params.getAll("education"));
+  if (education.length) {
+    filters.education = education;
+  }
+
+  const certifications = normalizeFilterValues(params.getAll("certification"));
+  if (certifications.length) {
+    filters.certifications = certifications;
+  }
+
+  const semanticFlag = params.get("semantic");
+  const similarityThreshold = params.get("semanticThreshold");
+  if (semanticFlag || similarityThreshold) {
+    filters.semantic = {
+      enabled: semanticFlag ? !["0", "false", "off"].includes(semanticFlag.toLowerCase()) : undefined,
+      similarityThreshold: similarityThreshold ? Number.parseFloat(similarityThreshold) : undefined
+    };
   }
 
   return filters;
@@ -175,6 +215,165 @@ function mapDocumentToListItem(document: CvDocument & { _id: ObjectId }): CvList
   };
 }
 
+function computeEmbedding(text: string) {
+  const vector = new Array<number>(EMBEDDING_DIMENSIONS).fill(0);
+  const tokens = text
+    .toLowerCase()
+    .split(/[^a-z0-9+]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 1);
+
+  for (const token of tokens) {
+    let hash = 0;
+    for (let index = 0; index < token.length; index += 1) {
+      hash = (hash * 31 + token.charCodeAt(index)) >>> 0;
+    }
+
+    const bucket = hash % EMBEDDING_DIMENSIONS;
+    vector[bucket] += 1;
+  }
+
+  const magnitude = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0));
+  if (!magnitude) {
+    return vector;
+  }
+
+  return vector.map((value) => Number((value / magnitude).toFixed(6)));
+}
+
+function cosineSimilarity(a: number[], b: number[]) {
+  if (!a.length || !b.length || a.length !== b.length) {
+    return 0;
+  }
+
+  let dot = 0;
+  let magnitudeA = 0;
+  let magnitudeB = 0;
+
+  for (let i = 0; i < a.length; i += 1) {
+    const av = a[i];
+    const bv = b[i];
+    dot += av * bv;
+    magnitudeA += av * av;
+    magnitudeB += bv * bv;
+  }
+
+  if (!magnitudeA || !magnitudeB) {
+    return 0;
+  }
+
+  return dot / (Math.sqrt(magnitudeA) * Math.sqrt(magnitudeB));
+}
+
+function generateSemanticSuggestions(
+  filters: CvSearchFilters,
+  entities: CvEntityDocument[],
+  keyword?: string | null
+): CvSemanticSuggestion[] {
+  if (!keyword) {
+    return [];
+  }
+
+  const queryEmbedding = computeEmbedding(keyword);
+  const appliedValues = new Set(
+    [
+      ...(filters.skills ?? []),
+      ...(filters.roles ?? []),
+      ...(filters.education ?? []),
+      ...(filters.languages ?? []),
+      ...(filters.certifications ?? []),
+      ...(filters.technologies ?? []),
+      ...(filters.industries ?? []),
+      ...(filters.locations ?? []),
+      ...(filters.keyword ? [filters.keyword] : [])
+    ].map((value) => value.toLowerCase())
+  );
+
+  const threshold = filters.semantic?.similarityThreshold ?? 0.6;
+  const scored = new Map<string, CvSemanticSuggestion>();
+
+  for (const entity of entities) {
+    if (!entity.embedding || entity.embedding.length !== EMBEDDING_DIMENSIONS) {
+      continue;
+    }
+
+    const score = cosineSimilarity(queryEmbedding, entity.embedding);
+    if (!Number.isFinite(score) || score < threshold) {
+      continue;
+    }
+
+    const key = `${entity.entityType}:${entity.label.toLowerCase()}`;
+    if (appliedValues.has(entity.label.toLowerCase())) {
+      continue;
+    }
+
+    const candidate: CvSemanticSuggestion = {
+      type: entity.entityType,
+      value: entity.label,
+      score: Number(score.toFixed(4))
+    };
+
+    const existing = scored.get(key);
+    if (!existing || existing.score < candidate.score) {
+      scored.set(key, candidate);
+    }
+  }
+
+  return Array.from(scored.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+}
+
+async function resolveOpenSearchMatches(keyword: string) {
+  const env = getEnv();
+  if (!env.OPENSEARCH_HOST) {
+    return null;
+  }
+
+  const url = `${env.OPENSEARCH_HOST.replace(/\/$/, "")}/cvs/_search`;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(env.OPENSEARCH_API_KEY ? { authorization: `ApiKey ${env.OPENSEARCH_API_KEY}` } : {})
+      },
+      body: JSON.stringify({
+        size: 50,
+        query: {
+          multi_match: {
+            query: keyword,
+            fields: ["consultant.name^3", "consultant.title", "skills", "tags", "entities"],
+            fuzziness: "AUTO"
+          }
+        }
+      })
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as {
+      hits?: { hits?: { _id?: string }[] };
+    };
+
+    const ids = payload.hits?.hits?.flatMap((hit) => {
+      try {
+        return hit._id ? [new ObjectId(hit._id)] : [];
+      } catch {
+        return [];
+      }
+    });
+
+    return ids && ids.length ? ids : null;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("Failed to query OpenSearch", error);
+    return null;
+  }
+}
+
 export async function findCvs(
   filters: CvSearchFilters,
   options: CvSearchOptions = {}
@@ -182,14 +381,141 @@ export async function findCvs(
   const page = Math.max(1, Math.trunc(options.page ?? 1));
   const pageSize = Math.min(100, Math.max(1, Math.trunc(options.pageSize ?? 20)));
 
+  const env = getEnv();
   const pipeline: Document[] = [];
+
+  const keyword = filters.keyword?.trim();
+  const useAtlasSearch = Boolean(keyword && env.ATLAS_SEARCH_INDEX_NAME);
+  const keywordRegex = keyword ? new RegExp(escapeRegex(keyword), "i") : null;
+
+  if (useAtlasSearch && keyword) {
+    pipeline.push({
+      $search: {
+        index: env.ATLAS_SEARCH_INDEX_NAME,
+        compound: {
+          should: [
+            {
+              text: {
+                query: keyword,
+                path: ["consultant.name", "consultant.title", "skills.name", "tags", "notes"]
+              }
+            }
+          ],
+          minimumShouldMatch: 1
+        }
+      }
+    });
+    pipeline.push({ $set: { searchScore: { $meta: "searchScore" } } });
+  }
+
   const matchStage = buildMatchStage(filters);
 
   if (matchStage) {
     pipeline.push({ $match: matchStage });
   }
 
-  pipeline.push({ $sort: options.sort ?? { updatedAt: -1 } });
+  if (!useAtlasSearch && keywordRegex) {
+    pipeline.push({
+      $match: {
+        $or: [
+          { "consultant.name": keywordRegex },
+          { "consultant.title": keywordRegex },
+          { "consultant.languages": keywordRegex },
+          { "availability.notes": keywordRegex },
+          { "skills.name": keywordRegex },
+          { tags: keywordRegex },
+          { notes: keywordRegex }
+        ]
+      }
+    });
+  }
+
+  const openSearchIds = keyword ? await resolveOpenSearchMatches(keyword) : null;
+  if (openSearchIds?.length) {
+    pipeline.push({ $match: { _id: { $in: openSearchIds } } });
+  }
+
+  const needsEntitiesLookup = Boolean(
+    filters.roles?.length ||
+      filters.education?.length ||
+      filters.certifications?.length ||
+      (!useAtlasSearch && keywordRegex) ||
+      filters.semantic?.enabled
+  );
+
+  if (needsEntitiesLookup) {
+    pipeline.push({
+      $lookup: {
+        from: "cv_entities",
+        let: { cvId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $eq: ["$cvId", "$$cvId"]
+              }
+            }
+          }
+        ],
+        as: "parsedEntities"
+      }
+    });
+
+    if (!useAtlasSearch && keywordRegex) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { parsedEntities: { $elemMatch: { label: keywordRegex } } },
+            { parsedEntities: { $elemMatch: { metadata: { rawText: keywordRegex } } } }
+          ]
+        }
+      });
+    }
+
+    if (filters.roles?.length) {
+      const roleRegexes = filters.roles.map((value) => createExactMatchRegex(value));
+      pipeline.push({
+        $match: {
+          parsedEntities: {
+            $elemMatch: {
+              entityType: "experience",
+              label: { $in: roleRegexes }
+            }
+          }
+        }
+      });
+    }
+
+    if (filters.education?.length) {
+      const educationRegexes = filters.education.map((value) => createExactMatchRegex(value));
+      pipeline.push({
+        $match: {
+          parsedEntities: {
+            $elemMatch: {
+              entityType: "education",
+              label: { $in: educationRegexes }
+            }
+          }
+        }
+      });
+    }
+
+    if (filters.certifications?.length) {
+      const certificationRegexes = filters.certifications.map((value) => createExactMatchRegex(value));
+      pipeline.push({
+        $match: {
+          parsedEntities: {
+            $elemMatch: {
+              entityType: "certification",
+              label: { $in: certificationRegexes }
+            }
+          }
+        }
+      });
+    }
+  }
+
+  pipeline.push({ $sort: options.sort ?? { updatedAt: -1, searchScore: -1 } });
 
   pipeline.push({
     $facet: {
@@ -216,10 +542,24 @@ export async function findCvs(
   const facetResult = aggregated[0] ?? { data: [], totalCount: [] };
 
   const total = facetResult.totalCount?.[0]?.count ?? 0;
-  const results = (facetResult.data as (CvDocument & { _id: ObjectId })[]).map((doc) =>
-    mapDocumentToListItem(doc)
+  const docs = facetResult.data as (CvDocument & { _id: ObjectId })[];
+  const results = docs.map((doc) => mapDocumentToListItem(doc));
+
+  const shouldGenerateSuggestions = Boolean(
+    (filters.semantic?.enabled ?? Boolean(keyword)) && keyword && results.length
   );
 
-  return { results, total, page, pageSize };
-}
+  let suggestions: CvSemanticSuggestion[] = [];
 
+  if (shouldGenerateSuggestions) {
+    const ids = docs.map((doc) => doc._id);
+    const entitiesCollection = await cvEntitiesCollection();
+    const relatedEntities = await entitiesCollection
+      .find({ cvId: { $in: ids } })
+      .limit(200)
+      .toArray();
+    suggestions = generateSemanticSuggestions(filters, relatedEntities, keyword);
+  }
+
+  return { results, total, page, pageSize, suggestions };
+}

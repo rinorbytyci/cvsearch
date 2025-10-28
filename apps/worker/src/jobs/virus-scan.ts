@@ -2,16 +2,22 @@ import { MongoClient, ObjectId } from "mongodb";
 import type { AppEnv } from "@cvsearch/config";
 
 export type VirusScanStatus = "pending" | "queued" | "scanning" | "clean" | "infected" | "error";
+export type CvParseStatus = "pending" | "processing" | "parsed" | "error";
 
 interface CvVersionDocument {
   _id: ObjectId;
   cvId: ObjectId;
   objectKey: string;
   checksum: string;
+  contentType: string;
+  originalFilename: string;
   virusScanStatus: VirusScanStatus;
   virusQueuedAt?: Date;
   virusScannedAt?: Date;
   virusScanResultMessage?: string | null;
+  parseStatus: CvParseStatus;
+  parsedAt?: Date;
+  parseError?: string | null;
 }
 
 interface VirusScanJobSummary {

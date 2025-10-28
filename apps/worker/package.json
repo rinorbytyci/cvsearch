@@ -12,9 +12,12 @@
   },
   "dependencies": {
     "@cvsearch/config": "workspace:*",
-    "mongodb": "6.6.2"
+    "@aws-sdk/client-s3": "^3.554.0",
+    "mongodb": "6.6.2",
+    "textract": "^2.5.0"
   },
   "devDependencies": {
+    "@types/textract": "^2.5.5",
     "@types/node": "20.12.7",
     "eslint": "^8.57.0",
     "typescript": "^5.4.5",

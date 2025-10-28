@@ -1,0 +1,18 @@
+[
+  {
+    "key": { "cvId": 1, "versionId": 1, "entityType": 1 },
+    "name": "by_cv_and_version"
+  },
+  {
+    "key": { "entityType": 1, "label": 1 },
+    "name": "by_type_and_label"
+  },
+  {
+    "key": { "embedding": "vectorSearch", "cvId": 1 },
+    "name": "embedding_vector",
+    "options": {
+      "dimensions": 256,
+      "similarity": "cosine"
+    }
+  }
+]

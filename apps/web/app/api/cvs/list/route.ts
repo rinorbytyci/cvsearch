@@ -48,7 +48,8 @@ export async function GET(request: NextRequest) {
         tags: item.tags,
         createdAt: item.createdAt.toISOString(),
         updatedAt: item.updatedAt.toISOString()
-      }))
+      })),
+      suggestions: result.suggestions
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to fetch CVs";
