@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import type { User as NextAuthUser } from "next-auth";
+import type { Adapter } from "next-auth/adapters";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GitHubProvider from "next-auth/providers/github";
 import GoogleProvider from "next-auth/providers/google";
@@ -18,7 +19,11 @@ const credentialsSchema = z.object({
   totp: z.string().optional()
 });
 
-const optionalProviders: Array<ReturnType<typeof GoogleProvider>> = [];
+type OptionalOAuthProvider =
+  | ReturnType<typeof GoogleProvider>
+  | ReturnType<typeof GitHubProvider>;
+
+const optionalProviders: OptionalOAuthProvider[] = [];
 
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   optionalProviders.push(
@@ -38,15 +43,49 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
   );
 }
 
-const handler = NextAuth({
-  adapter: MongoDBAdapter(getClient(), {
+const baseAdapter = MongoDBAdapter(getClient(), {
     collections: {
       Users: "users",
       Accounts: "accounts",
       Sessions: "sessions",
       VerificationTokens: "verificationTokens"
     }
-  }),
+  });
+
+const adapter: Adapter = {
+  ...baseAdapter,
+  async createVerificationToken(token) {
+    const created = await baseAdapter.createVerificationToken(token);
+    await logAuditEvent({
+      type: "password_reset",
+      success: true,
+      email: created.identifier,
+      metadata: {
+        action: "create",
+        token: created.token
+      }
+    });
+    return created;
+  },
+  async useVerificationToken(params) {
+    const result = await baseAdapter.useVerificationToken(params);
+    if (result) {
+      await logAuditEvent({
+        type: "password_reset",
+        success: true,
+        email: result.identifier,
+        metadata: {
+          action: "use",
+          token: result.token
+        }
+      });
+    }
+    return result;
+  }
+};
+
+const handler = NextAuth({
+  adapter,
   secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: "database"
@@ -156,40 +195,15 @@ const handler = NextAuth({
     }
   },
   events: {
-    async signOut(message) {
-      if (message.session?.user) {
+    async signOut({ session }) {
+      if (session?.user) {
         await logAuditEvent({
           type: "session_revocation",
           success: true,
-          userId: message.session.user.id,
-          email: message.session.user.email ?? undefined,
-          metadata: {
-            trigger: message.trigger
-          }
+          userId: session.user.id,
+          email: session.user.email ?? undefined
         });
       }
-    },
-    async createVerificationToken(message) {
-      await logAuditEvent({
-        type: "password_reset",
-        success: true,
-        email: message.identifier,
-        metadata: {
-          action: "create",
-          token: message.token
-        }
-      });
-    },
-    async useVerificationToken(message) {
-      await logAuditEvent({
-        type: "password_reset",
-        success: true,
-        email: message.identifier,
-        metadata: {
-          action: "use",
-          token: message.token
-        }
-      });
     }
   }
 });
