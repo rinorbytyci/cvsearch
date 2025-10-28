@@ -1,0 +1,24 @@
+{
+  "name": "@cvsearch/config",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --dts",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "typecheck": "tsc --project tsconfig.build.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "eslint": "^9.2.0",
+    "tsup": "^7.2.0",
+    "typescript": "^5.4.5",
+    "vitest": "^1.5.0"
+  }
+}
