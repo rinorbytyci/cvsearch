@@ -1,0 +1,10 @@
+[
+  {
+    "key": { "userId": 1, "createdAt": -1 },
+    "name": "user_created_at"
+  },
+  {
+    "key": { "createdAt": -1 },
+    "name": "created_at_desc"
+  }
+]

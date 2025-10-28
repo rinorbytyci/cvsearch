@@ -5,6 +5,10 @@
     "rootDir": "src",
     "module": "ESNext",
     "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "mongodb": ["../web/node_modules/mongodb"]
+    },
     "types": ["node"],
     "composite": false,
     "noEmit": false

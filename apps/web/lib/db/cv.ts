@@ -15,6 +15,8 @@ export interface CvConsultantInfo {
   phone?: string | null;
   title?: string | null;
   location?: string | null;
+  seniority?: string | null;
+  languages?: string[];
 }
 
 export interface CvAvailability {

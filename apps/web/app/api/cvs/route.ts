@@ -3,7 +3,8 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { createHash } from "node:crypto";
 import { Readable } from "node:stream";
-import { ObjectId } from "mongodb";
+import { ObjectId, type UpdateFilter } from "mongodb";
+import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { z } from "zod";
 
 import { getEnv } from "@/config/env";
@@ -25,7 +26,9 @@ const metadataSchema = z.object({
     email: z.string().trim().email().optional(),
     phone: z.string().trim().optional(),
     title: z.string().trim().optional(),
-    location: z.string().trim().optional()
+    location: z.string().trim().optional(),
+    seniority: z.string().trim().optional(),
+    languages: z.array(z.string().trim()).optional()
   }),
   skills: z
     .array(
@@ -135,7 +138,11 @@ function normalizeMetadata(input: MetadataInput): NormalizedMetadata {
     email: input.consultant.email ? input.consultant.email.trim() : null,
     phone: input.consultant.phone ? input.consultant.phone.trim() : null,
     title: input.consultant.title ? input.consultant.title.trim() : null,
-    location: input.consultant.location ? input.consultant.location.trim() : null
+    location: input.consultant.location ? input.consultant.location.trim() : null,
+    seniority: input.consultant.seniority ? input.consultant.seniority.trim() : null,
+    languages: (input.consultant.languages ?? [])
+      .map((language) => language.trim())
+      .filter((language) => Boolean(language))
   };
 
   const skills: CvSkill[] = (input.skills ?? []).map((skill) => ({
@@ -306,7 +313,9 @@ export async function POST(request: NextRequest) {
         const sanitizedFileName = sanitizeFilename(file.name || "cv.pdf");
         const objectKey = `cvs/${consultantSlug}/${Date.now()}-${sanitizedFileName}`;
 
-        const nodeStream = Readable.fromWeb(uploadStream as ReadableStream<Uint8Array>);
+        const nodeStream = Readable.fromWeb(
+          uploadStream as unknown as NodeReadableStream<Uint8Array>
+        );
 
         const upload = new Upload({
           client: s3Client,
@@ -372,7 +381,7 @@ export async function POST(request: NextRequest) {
             $push: {
               versionHistory: versionSummary
             }
-          }
+          } as unknown as UpdateFilter<CvDocument>
         );
 
         results.push({

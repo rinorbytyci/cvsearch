@@ -1,0 +1,11 @@
+[
+  {
+    "key": { "slug": 1 },
+    "name": "slug_unique",
+    "unique": true
+  },
+  {
+    "key": { "name": "text", "synonyms": "text" },
+    "name": "name_text"
+  }
+]
