@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import type { User as NextAuthUser } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GitHubProvider from "next-auth/providers/github";
 import GoogleProvider from "next-auth/providers/google";
@@ -75,7 +76,7 @@ const handler = NextAuth({
         const users = await usersCollection();
         const user = await users.findOne({ email: email.toLowerCase() });
 
-        if (!user) {
+        if (!user || !user._id) {
           await logAuditEvent({
             type: "login",
             success: false,
@@ -118,13 +119,15 @@ const handler = NextAuth({
           email
         });
 
-        return {
+        const authUser: NextAuthUser = {
           id: user._id.toHexString(),
           email: user.email,
           name: user.name ?? null,
           role: user.role,
           permissions: user.permissions
-        } as any;
+        };
+
+        return authUser;
       }
     }),
     ...optionalProviders
@@ -132,21 +135,21 @@ const handler = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = (user as any).role;
-        token.permissions = (user as any).permissions;
+        token.role = user.role;
+        token.permissions = user.permissions;
       }
       return token;
     },
     async session({ session, token, user }) {
       if (session.user) {
         if (user) {
-          session.user.role = (user as any).role;
-          session.user.permissions = (user as any).permissions;
-          session.user.id = user.id;
+          session.user.role = user.role;
+          session.user.permissions = user.permissions;
+          session.user.id = user.id ?? session.user.id;
         } else if (token) {
-          session.user.role = token.role as string | undefined;
-          session.user.permissions = token.permissions as string[] | undefined;
-          session.user.id = token.sub as string | undefined;
+          session.user.role = token.role;
+          session.user.permissions = token.permissions;
+          session.user.id = token.sub ?? session.user.id;
         }
       }
       return session;
