@@ -1,4 +1,5 @@
-import type { Document, ObjectId } from "mongodb";
+import { ObjectId } from "mongodb";
+import type { Document, ObjectId as MongoObjectId } from "mongodb";
 
 import { getEnv } from "@/config/env";
 import { cvEntitiesCollection, type CvEntityDocument } from "@/lib/db/cv-entities";
@@ -8,7 +9,7 @@ import type { SavedSearchFilters } from "@/lib/db/collections";
 export type CvSearchFilters = SavedSearchFilters;
 
 export interface CvListItem {
-  objectId: ObjectId;
+  objectId: MongoObjectId;
   id: string;
   consultant: CvDocument["consultant"];
   availability: CvDocument["availability"];
@@ -199,7 +200,7 @@ function buildMatchStage(filters: CvSearchFilters) {
   return { $and: andConditions } satisfies Document;
 }
 
-function mapDocumentToListItem(document: CvDocument & { _id: ObjectId }): CvListItem {
+function mapDocumentToListItem(document: CvDocument & { _id: MongoObjectId }): CvListItem {
   return {
     objectId: document._id,
     id: document._id.toHexString(),
@@ -542,7 +543,7 @@ export async function findCvs(
   const facetResult = aggregated[0] ?? { data: [], totalCount: [] };
 
   const total = facetResult.totalCount?.[0]?.count ?? 0;
-  const docs = facetResult.data as (CvDocument & { _id: ObjectId })[];
+  const docs = facetResult.data as (CvDocument & { _id: MongoObjectId })[];
   const results = docs.map((doc) => mapDocumentToListItem(doc));
 
   const shouldGenerateSuggestions = Boolean(

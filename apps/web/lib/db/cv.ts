@@ -72,7 +72,7 @@ export interface CvVersionDocument extends Document {
   virusScannedAt?: Date;
   virusScanResultMessage?: string;
   parseStatus: CvParseStatus;
-  parsedAt?: Date;
+  parsedAt?: Date | null;
   parseError?: string | null;
   createdAt: Date;
   createdBy?: string | ObjectId | null;

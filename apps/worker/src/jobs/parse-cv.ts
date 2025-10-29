@@ -1,5 +1,4 @@
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { promisify } from "node:util";
 import textract from "textract";
 import { MongoClient, ObjectId } from "mongodb";
 import type { AppEnv } from "@cvsearch/config";
@@ -21,7 +20,7 @@ interface CvVersionDocument {
   virusScannedAt?: Date;
   virusScanResultMessage?: string | null;
   parseStatus: CvParseStatus;
-  parsedAt?: Date;
+  parsedAt?: Date | null;
   parseError?: string | null;
   createdAt: Date;
 }
@@ -53,8 +52,23 @@ interface ParseCvJobSummary {
   skipped: number;
 }
 
-const extractFromBuffer = promisify(textract.fromBufferWithMime);
 const EMBEDDING_DIMENSIONS = 256;
+
+function extractFromBuffer(mimeType: string, data: Buffer): Promise<string | undefined> {
+  return new Promise((resolve, reject) => {
+    textract.fromBufferWithMime(
+      mimeType,
+      data,
+      (error: Error | null, text: string | undefined | null) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(text ?? undefined);
+      }
+    );
+  });
+}
 
 function hashToken(token: string) {
   let hash = 0;
@@ -107,15 +121,15 @@ async function bodyToBuffer(body: unknown): Promise<Buffer> {
 
   const streamLike = body as AsyncIterable<Uint8Array | Buffer | string>;
   if (typeof (streamLike as AsyncIterable<unknown>)[Symbol.asyncIterator] === "function") {
-    const chunks: Buffer[] = [];
+    const chunks: Uint8Array[] = [];
     for await (const chunk of streamLike) {
-      if (typeof chunk === "string") {
-        chunks.push(Buffer.from(chunk));
-      } else if (Buffer.isBuffer(chunk)) {
-        chunks.push(chunk);
-      } else {
-        chunks.push(Buffer.from(chunk));
-      }
+      const normalizedChunk =
+        typeof chunk === "string"
+          ? Buffer.from(chunk)
+          : Buffer.isBuffer(chunk)
+            ? chunk
+            : Buffer.from(chunk);
+      chunks.push(new Uint8Array(normalizedChunk));
     }
     return Buffer.concat(chunks);
   }
@@ -387,14 +401,16 @@ export async function runParseCvJob(env: AppEnv, options: ParseCvJobOptions = {}
     }
 
     for (const version of pending) {
-      const claimStatuses = options.force ? ["pending", "error", "parsed"] : ["pending", "error"];
-      const claim = await versions.findOneAndUpdate(
+      const claimStatuses: CvParseStatus[] = options.force
+        ? ["pending", "error", "parsed"]
+        : ["pending", "error"];
+      const claimedVersion = await versions.findOneAndUpdate(
         { _id: version._id, parseStatus: { $in: claimStatuses } },
         { $set: { parseStatus: "processing", parseError: null } },
         { returnDocument: "after" }
       );
 
-      if (!claim.value) {
+      if (!claimedVersion) {
         summary.skipped += 1;
         continue;
       }
@@ -402,35 +418,38 @@ export async function runParseCvJob(env: AppEnv, options: ParseCvJobOptions = {}
       summary.processed += 1;
 
       await cvs.updateOne(
-        { _id: version.cvId },
+        { _id: claimedVersion.cvId },
         {
           $set: {
             "versionHistory.$[entry].parseStatus": "processing",
             "versionHistory.$[entry].parsedAt": null
           }
         },
-        { arrayFilters: [{ "entry.versionId": version._id }] }
+        { arrayFilters: [{ "entry.versionId": claimedVersion._id }] }
       );
 
       try {
         const object = await s3Client.send(
-          new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: version.objectKey })
+          new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: claimedVersion.objectKey })
         );
 
         const buffer = await bodyToBuffer(object.Body);
-        const extractedText = await extractFromBuffer(version.contentType || "application/octet-stream", buffer);
+        const extractedText = await extractFromBuffer(
+          claimedVersion.contentType || "application/octet-stream",
+          buffer
+        );
 
         const rawEntities = extractEntities(extractedText ?? "", parserVersion);
         const deduped = deduplicateEntities(rawEntities);
 
-        await entitiesCollection.deleteMany({ cvId: version.cvId, versionId: version._id });
+        await entitiesCollection.deleteMany({ cvId: claimedVersion.cvId, versionId: claimedVersion._id });
 
         if (deduped.length) {
           const now = new Date();
           const docs = deduped.map((entity) => ({
             ...entity,
-            cvId: version.cvId,
-            versionId: version._id,
+            cvId: claimedVersion.cvId,
+            versionId: claimedVersion._id,
             createdAt: entity.createdAt ?? now,
             updatedAt: entity.updatedAt ?? now,
             source: "parser" as const
@@ -440,44 +459,44 @@ export async function runParseCvJob(env: AppEnv, options: ParseCvJobOptions = {}
 
         const completedAt = new Date();
         await versions.updateOne(
-          { _id: version._id },
+          { _id: claimedVersion._id },
           { $set: { parseStatus: "parsed", parsedAt: completedAt, parseError: null } }
         );
         await cvs.updateOne(
-          { _id: version.cvId },
+          { _id: claimedVersion.cvId },
           {
             $set: {
               "versionHistory.$[entry].parseStatus": "parsed",
               "versionHistory.$[entry].parsedAt": completedAt
             }
           },
-          { arrayFilters: [{ "entry.versionId": version._id }] }
+          { arrayFilters: [{ "entry.versionId": claimedVersion._id }] }
         );
 
         summary.parsed += 1;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown parsing error";
         await versions.updateOne(
-          { _id: version._id },
+          { _id: claimedVersion._id },
           { $set: { parseStatus: "error", parseError: message } }
         );
         await cvs.updateOne(
-          { _id: version.cvId },
+          { _id: claimedVersion.cvId },
           {
             $set: {
               "versionHistory.$[entry].parseStatus": "error",
               "versionHistory.$[entry].parsedAt": null
             }
           },
-          { arrayFilters: [{ "entry.versionId": version._id }] }
+          { arrayFilters: [{ "entry.versionId": claimedVersion._id }] }
         );
         summary.failed += 1;
         // eslint-disable-next-line no-console
         console.error(
           "Failed to parse CV",
-          version._id.toHexString(),
+          claimedVersion._id.toHexString(),
           "for cv",
-          version.cvId.toHexString(),
+          claimedVersion.cvId.toHexString(),
           message,
           error
         );
