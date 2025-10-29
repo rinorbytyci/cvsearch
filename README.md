@@ -50,6 +50,27 @@ Terraform code under `infrastructure/` provisions networking, MongoDB Atlas, and
 
 ## Deployment
 
+### Running the stack locally
+
+1. **Install prerequisites**
+   - Node.js 20 LTS and pnpm (the workspace pins the version through the `packageManager` field).
+   - A MongoDB instance: either a local Docker container (`docker run -p 27017:27017 mongo:7`) or a MongoDB Atlas cluster.
+   - Access to a Contabo S3-compatible bucket, or an S3 emulator such as LocalStack/MinIO for purely local testing.
+2. **Configure environment variables**
+   - Copy `apps/web/.env.example` to `apps/web/.env` and set `MONGODB_URI`, `S3_*` credentials, and any authentication secrets.
+   - Copy `apps/worker/.env.example` to `apps/worker/.env` so the worker shares the same configuration.
+3. **Install dependencies**
+   - Run `pnpm install` from the repository root to install workspace dependencies.
+4. **Start required services**
+   - Launch the Next.js app: `pnpm --filter @cvsearch/web dev` (runs on `http://localhost:3000`).
+   - In a separate terminal, start the worker: `pnpm --filter @cvsearch/worker start`.
+   - If using a local S3 emulator, ensure it is running and that the bucket referenced in your `.env` exists.
+5. **Seed development data (optional)**
+   - Use the MongoDB shell or a script under `apps/worker` to insert seed consultants, skills, and taxonomy entries for richer local testing.
+6. **Verify flows**
+   - Create a test account, upload a CV, and confirm the document appears in your S3 bucket/emulator.
+   - Check the worker logs to ensure background jobs (e.g., virus scanning stubs) process the upload events without errors.
+
 ### Deploying `apps/web` to Vercel
 
 1. **Prepare the repository**
