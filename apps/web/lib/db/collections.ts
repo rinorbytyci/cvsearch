@@ -27,15 +27,67 @@ export interface VerificationTokenDocument extends Document {
   expires: Date;
 }
 
+export type AuditLogEventType =
+  | "login"
+  | "password_reset"
+  | "session_revocation"
+  | "document_view"
+  | "document_download";
+
+export interface AuditLogMetadata extends Record<string, unknown> {
+  action?: string;
+  consultantId?: ObjectId | string;
+  versionId?: ObjectId | string;
+  ipAddress?: string | null;
+  policyVersion?: string | null;
+  consentStatus?: string | null;
+  deniedReason?: string | null;
+  userAgent?: string | null;
+  locale?: string | null;
+  outcome?: "authorized" | "denied" | "error";
+}
+
 export interface AuditLogDocument extends Document {
   _id?: ObjectId;
-  type: "login" | "password_reset" | "session_revocation";
+  type: AuditLogEventType;
   success: boolean;
   userId?: ObjectId | string;
   email?: string;
   message?: string;
   createdAt: Date;
-  metadata?: Record<string, unknown>;
+  metadata?: AuditLogMetadata;
+}
+
+export type ConsentStatus = "pending" | "granted" | "revoked";
+
+export interface ConsultantConsentHistoryEntry {
+  status: ConsentStatus;
+  note?: string | null;
+  updatedAt: Date;
+  updatedBy?: ObjectId | string | null;
+  policyVersion?: string | null;
+}
+
+export interface LegalHoldInfo {
+  active: boolean;
+  reason?: string | null;
+  setAt?: Date | null;
+  setBy?: ObjectId | string | null;
+}
+
+export interface ConsultantConsentDocument extends Document {
+  _id?: ObjectId;
+  consultantId: ObjectId;
+  status: ConsentStatus;
+  note?: string | null;
+  consentedAt?: Date | null;
+  revokedAt?: Date | null;
+  updatedAt: Date;
+  updatedBy?: ObjectId | string | null;
+  history: ConsultantConsentHistoryEntry[];
+  legalHold?: LegalHoldInfo;
+  languagePreference?: string | null;
+  policyVersion?: string | null;
 }
 
 export interface TaxonomyDocument extends Document {
@@ -124,6 +176,11 @@ export async function verificationTokensCollection() {
 export async function auditLogsCollection() {
   const db = await getDatabase();
   return db.collection<AuditLogDocument>("audit_logs");
+}
+
+export async function consultantConsentsCollection() {
+  const db = await getDatabase();
+  return db.collection<ConsultantConsentDocument>("consultant_consents");
 }
 
 export async function skillsCollection() {

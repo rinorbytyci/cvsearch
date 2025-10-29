@@ -17,6 +17,8 @@ export interface CvListItem {
   tags: string[];
   createdAt: Date;
   updatedAt: Date;
+  languagePreference?: string | null;
+  retention?: CvDocument["retention"];
 }
 
 export interface CvSearchOptions {
@@ -212,7 +214,9 @@ function mapDocumentToListItem(document: CvDocument & { _id: MongoObjectId }): C
     skills: document.skills ?? [],
     tags: document.tags ?? [],
     createdAt: document.createdAt,
-    updatedAt: document.updatedAt
+    updatedAt: document.updatedAt,
+    languagePreference: document.languagePreference ?? null,
+    retention: document.retention
   };
 }
 

@@ -61,6 +61,7 @@ interface NormalizedMetadata {
   tags: string[];
   notes?: string | null;
   uploadedBy?: string | null;
+  languagePreference?: string | null;
 }
 
 type CvCollection = Awaited<ReturnType<typeof cvsCollection>>;
@@ -178,6 +179,7 @@ function normalizeMetadata(input: MetadataInput): NormalizedMetadata {
 
   const notes = input.notes ? input.notes.trim() : null;
   const uploadedBy = input.uploadedBy ? input.uploadedBy.trim() : null;
+  const languagePreference = consultant.languages?.[0] ?? null;
 
   const normalized: NormalizedMetadata = {
     consultant,
@@ -185,7 +187,8 @@ function normalizeMetadata(input: MetadataInput): NormalizedMetadata {
     availability,
     tags,
     notes,
-    uploadedBy
+    uploadedBy,
+    languagePreference
   };
 
   if (input.cvId) {
@@ -232,7 +235,16 @@ async function ensureCvDocument(metadata: NormalizedMetadata, collection?: CvCol
     notes: metadata.notes ?? null,
     versionHistory: [],
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
+    languagePreference: metadata.languagePreference ?? null,
+    retention: {
+      status: "active",
+      flaggedAt: null,
+      purgeScheduledFor: null,
+      purgedAt: null,
+      warningSentAt: null,
+      reason: null
+    }
   };
 
   const insertResult = await cvs.insertOne(newDoc);
@@ -379,7 +391,16 @@ export async function POST(request: NextRequest) {
               tags: metadata.tags,
               notes: metadata.notes ?? null,
               latestVersionId: versionId,
-              updatedAt: now
+              updatedAt: now,
+              languagePreference: metadata.languagePreference ?? null,
+              retention: {
+                status: "active",
+                flaggedAt: null,
+                purgeScheduledFor: null,
+                purgedAt: null,
+                warningSentAt: null,
+                reason: null
+              }
             },
             $push: {
               versionHistory: versionSummary
