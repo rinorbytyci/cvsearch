@@ -26,6 +26,17 @@ export interface CvAvailability {
   notes?: string | null;
 }
 
+export type CvRetentionStatus = "active" | "flagged" | "purged";
+
+export interface CvRetentionState {
+  status: CvRetentionStatus;
+  flaggedAt?: Date | null;
+  purgeScheduledFor?: Date | null;
+  purgedAt?: Date | null;
+  warningSentAt?: Date | null;
+  reason?: string | null;
+}
+
 export interface CvVersionSummary {
   versionId: ObjectId;
   objectKey: string;
@@ -51,6 +62,8 @@ export interface CvDocument extends Document {
   versionHistory: CvVersionSummary[];
   createdAt: Date;
   updatedAt: Date;
+  languagePreference?: string | null;
+  retention?: CvRetentionState;
 }
 
 export interface CvVersionMetadata {

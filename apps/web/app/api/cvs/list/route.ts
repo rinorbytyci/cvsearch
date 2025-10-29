@@ -46,6 +46,25 @@ export async function GET(request: NextRequest) {
         },
         skills: item.skills,
         tags: item.tags,
+        languagePreference: item.languagePreference ?? null,
+        retention: item.retention
+          ? {
+              status: item.retention.status,
+              flaggedAt: item.retention.flaggedAt
+                ? item.retention.flaggedAt.toISOString()
+                : null,
+              purgeScheduledFor: item.retention.purgeScheduledFor
+                ? item.retention.purgeScheduledFor.toISOString()
+                : null,
+              purgedAt: item.retention.purgedAt
+                ? item.retention.purgedAt.toISOString()
+                : null,
+              warningSentAt: item.retention.warningSentAt
+                ? item.retention.warningSentAt.toISOString()
+                : null,
+              reason: item.retention.reason ?? null
+            }
+          : null,
         createdAt: item.createdAt.toISOString(),
         updatedAt: item.updatedAt.toISOString()
       })),

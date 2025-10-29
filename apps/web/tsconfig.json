@@ -14,8 +14,14 @@
       "@/config/env": [
         "./src/config/env"
       ],
+      "@cvsearch/config": [
+        "../../packages/config/src/index.ts"
+      ],
       "@/lib/*": [
         "./lib/*"
+      ],
+      "@/i18n/*": [
+        "./i18n/*"
       ],
       "@/components/*": [
         "./components/*"

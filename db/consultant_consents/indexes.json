@@ -1,0 +1,15 @@
+[
+  {
+    "key": { "consultantId": 1 },
+    "name": "consultant_unique",
+    "unique": true
+  },
+  {
+    "key": { "status": 1, "updatedAt": -1 },
+    "name": "status_updated_at"
+  },
+  {
+    "key": { "legalHold.active": 1, "updatedAt": -1 },
+    "name": "legal_hold_active"
+  }
+]

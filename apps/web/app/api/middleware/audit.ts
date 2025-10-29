@@ -1,8 +1,14 @@
 import { ObjectId } from "mongodb";
 
 import { auditLogsCollection } from "@/lib/db/collections";
+import type { AuditLogMetadata } from "@/lib/db/collections";
 
-export type AuditEventType = "login" | "password_reset" | "session_revocation";
+export type AuditEventType =
+  | "login"
+  | "password_reset"
+  | "session_revocation"
+  | "document_view"
+  | "document_download";
 
 export interface AuditEvent {
   type: AuditEventType;
@@ -10,7 +16,7 @@ export interface AuditEvent {
   userId?: string | ObjectId;
   email?: string;
   message?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: AuditLogMetadata;
 }
 
 function normalizeUserId(userId?: string | ObjectId) {

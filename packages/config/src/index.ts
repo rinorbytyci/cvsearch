@@ -19,7 +19,19 @@ const envSchema = z.object({
   ATLAS_SEARCH_VECTOR_INDEX: z.string().optional(),
   OPENSEARCH_HOST: z.string().optional(),
   OPENSEARCH_API_KEY: z.string().optional(),
-  CV_EMBEDDINGS_COLLECTION: z.string().optional()
+  CV_EMBEDDINGS_COLLECTION: z.string().optional(),
+  PRIVACY_POLICY_VERSION: z.string().default("2024-01"),
+  CONSENT_REQUIRED: z.coerce.boolean().default(true),
+  CV_RETENTION_WARNING_DAYS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .default(330),
+  CV_RETENTION_PURGE_DAYS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .default(365)
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

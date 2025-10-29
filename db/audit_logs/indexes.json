@@ -1,0 +1,19 @@
+[
+  {
+    "key": { "type": 1, "createdAt": -1 },
+    "name": "type_created_at"
+  },
+  {
+    "key": { "userId": 1, "createdAt": -1 },
+    "name": "user_created_at"
+  },
+  {
+    "key": { "metadata.consultantId": 1, "createdAt": -1 },
+    "name": "consultant_created_at"
+  },
+  {
+    "key": { "metadata.versionId": 1, "createdAt": -1 },
+    "name": "version_created_at",
+    "partialFilterExpression": { "metadata.versionId": { "$exists": true } }
+  }
+]
