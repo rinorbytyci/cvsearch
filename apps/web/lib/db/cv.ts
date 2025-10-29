@@ -2,6 +2,7 @@ import type { Document, ObjectId } from "mongodb";
 import { getDatabase } from "./client";
 
 export type VirusScanStatus = "pending" | "queued" | "scanning" | "clean" | "infected" | "error";
+export type CvParseStatus = "pending" | "processing" | "parsed" | "error";
 
 export interface CvSkill {
   name: string;
@@ -35,6 +36,8 @@ export interface CvVersionSummary {
   uploadedBy?: string | ObjectId | null;
   virusScanStatus: VirusScanStatus;
   virusScannedAt?: Date | null;
+  parseStatus: CvParseStatus;
+  parsedAt?: Date | null;
 }
 
 export interface CvDocument extends Document {
@@ -68,6 +71,9 @@ export interface CvVersionDocument extends Document {
   virusQueuedAt?: Date;
   virusScannedAt?: Date;
   virusScanResultMessage?: string;
+  parseStatus: CvParseStatus;
+  parsedAt?: Date | null;
+  parseError?: string | null;
   createdAt: Date;
   createdBy?: string | ObjectId | null;
   restoredFromVersionId?: ObjectId;

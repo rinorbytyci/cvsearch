@@ -25,6 +25,10 @@ export interface CvFilterPanelProps {
 const SENIORITY_OPTIONS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Principal"];
 const AVAILABILITY_OPTIONS = ["available", "soon", "unavailable", "unknown"];
 
+type ArrayFilterKey = keyof {
+  [Key in keyof CvSearchFilters as CvSearchFilters[Key] extends string[] | undefined ? Key : never]: true;
+};
+
 function toggleValue(values: string[] | undefined, value: string) {
   const current = values ?? [];
   const filtered = current.filter((existing) => existing.toLowerCase() !== value.toLowerCase());
@@ -42,11 +46,12 @@ function ensureArray(values: string[] | undefined) {
 
 export function CvFilterPanel({ filters, onChange, taxonomy }: CvFilterPanelProps) {
   const handleToggle = useCallback(
-    (key: keyof CvSearchFilters, value: string) => {
-      const updated: CvSearchFilters = {
-        ...filters,
-        [key]: toggleValue(filters[key], value)
-      };
+    (key: ArrayFilterKey, value: string) => {
+      const filterMap = filters as Partial<Record<ArrayFilterKey, string[] | undefined>>;
+      const currentValues = filterMap[key];
+      const nextValues = toggleValue(currentValues, value);
+      const updated = { ...filters } as CvSearchFilters;
+      (updated as Partial<Record<ArrayFilterKey, string[] | undefined>>)[key] = nextValues;
       onChange(updated);
     },
     [filters, onChange]

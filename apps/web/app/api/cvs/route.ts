@@ -347,6 +347,7 @@ export async function POST(request: NextRequest) {
             notes: metadata.notes ?? null
           },
           virusScanStatus: "pending",
+          parseStatus: "pending",
           createdAt: now,
           createdBy: metadata.uploadedBy ?? null
         };
@@ -363,7 +364,9 @@ export async function POST(request: NextRequest) {
           contentType: file.type || "application/octet-stream",
           uploadedBy: metadata.uploadedBy ?? null,
           virusScanStatus: "pending",
-          virusScannedAt: null
+          virusScannedAt: null,
+          parseStatus: "pending",
+          parsedAt: null
         };
 
         await cvs.updateOne(

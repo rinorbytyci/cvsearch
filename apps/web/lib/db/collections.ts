@@ -51,6 +51,7 @@ export interface TaxonomyDocument extends Document {
 }
 
 export interface SavedSearchFilters {
+  keyword?: string | null;
   skills?: string[];
   industries?: string[];
   technologies?: string[];
@@ -58,6 +59,13 @@ export interface SavedSearchFilters {
   availability?: string[];
   languages?: string[];
   locations?: string[];
+  roles?: string[];
+  education?: string[];
+  certifications?: string[];
+  semantic?: {
+    enabled?: boolean;
+    similarityThreshold?: number;
+  };
 }
 
 export interface SavedSearchNotificationSettings {
